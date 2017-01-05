@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <cstdlib>
+#include <time.h>
 
 using std::endl;
 using std::cout;
@@ -12,13 +13,13 @@ using std::vector;
 using std::ifstream;
 
 void sudokusolver(vector<int>& linsud,vector<vector<vector<int>>>& possible_moves);
-void extract_row(const vector<int>& vin, int& row, vector<int>& out);
-void extract_col(const vector<int>& vin, int& col, vector<int>& out);
-void extract_subsquare(const vector<int>& vin, int& row, int& col, vector<int>& out);
+void extract_row(const vector<int>& vin, int& row, int *out);
+void extract_col(const vector<int>& vin, int& col, int *out);
+void extract_subsquare(const vector<int>& vin, int& row, int& col, int *out);
 void coordtoidx(int& row,int& col,int& idx);
-void copy(vector<int>& linsud,int& rowid,vector<int>& tmp);
+void copy(vector<int>& linsud,int& rowid,int *tmp);
 bool sudoku_done(const vector<vector<int>>& linsud, int& game_done_index);
-bool found_in_vector(const vector<int>& vin,int& item);
+bool found_in_vector(const int *vin,int& item);
 bool dead_end(const vector<vector<vector<int>>>& possible_moves);
 bool need_guess(const vector<vector<vector<int>>>& possible_moves,vector<int>& guesses,int& row);
 bool sudoku_check(const vector<int> sudoku);
@@ -39,6 +40,9 @@ int main(){
 		linsud.push_back(n);
 	}
 	
+	clock_t t1,t2;
+    	t1=clock();
+	
 	cout << "starting grid" << endl << endl;
 		
 	for(int i=0;i<9;i++){
@@ -58,11 +62,12 @@ int main(){
 	int max_concurrent_games = 0;
 	
 	while(!sudoku_done(games,index)){
-		num_loops++;
+		
 	
 		vector<vector<int>> new_games;
 	
 		for(int i = 0;i<games.size();i++){
+			num_loops++;
 		
 			vector<vector<vector<int>>> possible_moves;
 			vector<int> guesses;
@@ -108,8 +113,11 @@ int main(){
 		cout << "solution not found" << endl;
 	}
 	cout << endl << "stats:" << endl;
-	cout << "max open games: " << max_concurrent_games << endl;
-	cout << "number of loops to solve: " << num_loops << endl;
+	cout << "max concurrent open games: " << max_concurrent_games << endl;
+	cout << "number of game evaluations: " << num_loops << endl;
+	t2=clock();
+    	float diff ((float)t2-(float)t1);
+    	cout << "time taken in seconds: " << diff/CLOCKS_PER_SEC << endl;
 	infile.close();
 	return 0;
 }
@@ -118,9 +126,11 @@ void sudokusolver(vector<int>& linsud,vector<vector<vector<int>>>& possible_move
 	//need to save possible moves in v of v of v
 	//top level designates rows
 	//second level vectors for all possible numbers in a certain row
-	//last level vector of possible index for the number 
+	//last level vector of possible indices for the number
+	int *coltmp = (int *)malloc(9*sizeof(int));
+	int *rowtmp = (int *)malloc(9*sizeof(int));
+	int *sstmp = (int *)malloc(9*sizeof(int));
 	for(int i=0;i<9;i++){
-		vector<int> rowtmp;
 		extract_row(linsud,i,rowtmp);
 		//cout << "row " << i << endl;
 		vector<vector<int>> possible_moves_mid;
@@ -130,8 +140,6 @@ void sudokusolver(vector<int>& linsud,vector<vector<vector<int>>>& possible_move
 			if(!found_in_vector(rowtmp,k)){
 				for(int j=0;j<9;j++){
 					if(rowtmp[j]==0){
-						vector<int> coltmp;
-						vector<int> sstmp;
 						extract_col(linsud,j,coltmp);
 						extract_subsquare(linsud,i,j,sstmp);
 						if(!found_in_vector(coltmp,k) && !found_in_vector(sstmp,k)){
@@ -151,13 +159,15 @@ void sudokusolver(vector<int>& linsud,vector<vector<vector<int>>>& possible_move
 		copy(linsud,i,rowtmp);
 		possible_moves_high.push_back(possible_moves_mid);
 	}
+	free(coltmp);
+	free(rowtmp);
+	free(sstmp);
 }
 
 bool dead_end(const vector<vector<vector<int>>>& possible_moves){
 	for(int rows = 0;rows<possible_moves.size();rows++){
 		for(int possible_numbers = 0;possible_numbers<possible_moves[rows].size();possible_numbers++){
 			if(possible_moves[rows][possible_numbers].size() == 1){
-			
 				return true;
 			}
 		}
@@ -199,8 +209,8 @@ bool sudoku_done(const vector<vector<int>>& linsud, int& game_done_index){
 	return false;
 }
 
-bool found_in_vector(const vector<int>& vin,int& item){
-	for(int i = 0;i<vin.size();i++){
+bool found_in_vector(const int *vin,int& item){
+	for(int i = 0;i<9;i++){
 		if(vin[i] == item){
 			return true;
 		}
@@ -208,29 +218,29 @@ bool found_in_vector(const vector<int>& vin,int& item){
 	return false;
 }
 
-void copy(vector<int>& linsud,int& rowid,vector<int>& tmp){
+void copy(vector<int>& linsud,int& rowid,int *tmp){
 	for(int i=0;i<9;i++){
 		linsud[rowid*9+i]=tmp[i];
 	}
 }
 
-void extract_row(const vector<int>& vin, int& row, vector<int>& out){
+void extract_row(const vector<int>& vin, int& row, int *out){
 	int idx;
 	for(int i=0;i<=8;i++){
 		coordtoidx(row,i,idx);
-		out.push_back(vin[idx]);
+		out[i] = vin[idx];
 	}
 }
 
-void extract_col(const vector<int>& vin, int& col, vector<int>& out){
+void extract_col(const vector<int>& vin, int& col, int *out){
 	int idx;
 	for(int i=0;i<=8;i++){
 		coordtoidx(i,col,idx);
-		out.push_back(vin[idx]);
+		out[i] = vin[idx];
 	}
 }
 
-void extract_subsquare(const vector<int>& vin, int& row, int& col, vector<int>& out){
+void extract_subsquare(const vector<int>& vin, int& row, int& col, int *out){
 	int idx;
 	int r;
 	int c;
@@ -255,7 +265,7 @@ void extract_subsquare(const vector<int>& vin, int& row, int& col, vector<int>& 
 	for(int i=r;i<=r+2;i++){
 		for(int j=c;j<=c+2;j++){
 			coordtoidx(i,j,idx);
-			out.push_back(vin[idx]);
+			out[(i-r)*3+j-c] = vin[idx];
 		}
 	}
 }
@@ -265,9 +275,9 @@ void coordtoidx(int& row,int& col,int& idx){
 }
 
 bool sudoku_check(const vector<int> sudoku){
-	vector<int> rowtmp;
-	vector<int> coltmp;
-	vector<int> sstmp;
+	int *coltmp = (int *)malloc(9*sizeof(int));
+	int *rowtmp = (int *)malloc(9*sizeof(int));
+	int *sstmp = (int *)malloc(9*sizeof(int));
 	for(int i = 0;i<9;i++){
 		
 		extract_row(sudoku,i,rowtmp);
@@ -275,6 +285,9 @@ bool sudoku_check(const vector<int> sudoku){
 		
 		for(int k=1;k<=9;k++){
 			if(!found_in_vector(rowtmp,k) || !found_in_vector(coltmp,k)){
+				free(coltmp);
+				free(rowtmp);
+				free(sstmp);
 				return false;
 			}
 		}
@@ -286,10 +299,16 @@ bool sudoku_check(const vector<int> sudoku){
 			for(int k=1;k<=9;k++){
 				extract_subsquare(sudoku,i,j,sstmp);
 				if(!found_in_vector(sstmp,k)){
+					free(coltmp);
+					free(rowtmp);
+					free(sstmp);
 					return false;
 				}
 			}
 		}
 	}
+	free(coltmp);
+	free(rowtmp);
+	free(sstmp);
 	return true;
 }
